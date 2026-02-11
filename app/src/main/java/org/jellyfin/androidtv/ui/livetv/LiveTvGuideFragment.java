@@ -323,6 +323,11 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
                 // bring up filter selection
                 showFilterOptions.setValue(true);
                 break;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+            case KeyEvent.KEYCODE_MEDIA_REWIND:
+            case KeyEvent.KEYCODE_MEDIA_NEXT:
+            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                return handleChannelPageKey(keyCode);
             case KeyEvent.KEYCODE_ENTER:
             case KeyEvent.KEYCODE_DPAD_CENTER:
                 if ((event.getFlags() & KeyEvent.FLAG_CANCELED_LONG_PRESS) == 0) {
@@ -374,6 +379,31 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
         }
 
         return false;
+    }
+
+    private boolean handleChannelPageKey(int keyCode) {
+        // Channel paging is disabled when filtering because all channels are already displayed.
+        if (mFilters.any()) {
+            return true;
+        }
+        if (mDetailPopup != null && mDetailPopup.isShowing()) {
+            return true;
+        }
+        if (mSpinner.getVisibility() == View.VISIBLE || mAllChannels == null || mAllChannels.isEmpty()) {
+            return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) {
+            if (mCurrentDisplayChannelEndNdx >= mAllChannels.size() - 1) return true;
+            displayChannels(mCurrentDisplayChannelEndNdx + 1, PAGE_SIZE);
+            return true;
+        }
+
+        if (mCurrentDisplayChannelStartNdx <= 0) return true;
+        int pageUpStart = mCurrentDisplayChannelStartNdx - PAGE_SIZE;
+        if (pageUpStart < 0) pageUpStart = 0;
+        displayChannels(pageUpStart, PAGE_SIZE);
+        return true;
     }
 
     View.OnClickListener datePickedListener = new View.OnClickListener() {
