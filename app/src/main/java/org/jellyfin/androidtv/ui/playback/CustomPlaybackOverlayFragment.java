@@ -187,7 +187,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     .findFragmentById(R.id.rows_area);
         }
 
-        mPopupRowPresenter = new PositionableListRowPresenter();
+        mPopupRowPresenter = new PositionableListRowPresenter(null, true);
         mPopupRowAdapter = new ArrayObjectAdapter(mPopupRowPresenter);
         mPopupRowsFragment.setAdapter(mPopupRowAdapter);
         mPopupRowsFragment.setOnItemViewClickedListener(itemViewClickedListener);
@@ -511,7 +511,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         @Override
         public boolean onKey(View v, int keyCode, KeyEvent event) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (!mGuideVisible)
+                if (!mGuideVisible && !mPopupPanelVisible)
                     leanbackOverlayFragment.setShouldShowOverlay(true);
                 else {
                     leanbackOverlayFragment.setShouldShowOverlay(false);
@@ -563,11 +563,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     }
                 }
 
-                if (mPopupPanelVisible && !mGuideVisible && keyCode == KeyEvent.KEYCODE_DPAD_LEFT && mPopupRowPresenter.getPosition() == 0) {
-                    mPopupRowsFragment.requireView().requestFocus();
-                    mPopupRowPresenter.setPosition(0);
-                    return true;
-                }
                 if (mGuideVisible) {
                     if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_BUTTON_B || keyCode == KeyEvent.KEYCODE_ESCAPE) {
                         // go back to normal
