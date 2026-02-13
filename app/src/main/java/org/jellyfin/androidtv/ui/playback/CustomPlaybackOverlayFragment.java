@@ -419,6 +419,12 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 event.startTracking();
                 return true;
             }
+            if (mGuideVisible && (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
+                    || keyCode == KeyEvent.KEYCODE_MEDIA_REWIND
+                    || keyCode == KeyEvent.KEYCODE_MEDIA_NEXT
+                    || keyCode == KeyEvent.KEYCODE_MEDIA_PREVIOUS)) {
+                return true;
+            }
         } else if (event.getAction() == KeyEvent.ACTION_UP) {
             if (keyListener.onKey(v, keyCode, event)) return true;
 
@@ -437,6 +443,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 }
                 return false;
             }
+
+            if (handleGuideChannelPageKey(keyCode)) return true;
 
             PlaybackController playbackController = playbackControllerContainer.getValue().getPlaybackController();
 
@@ -461,6 +469,34 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         }
 
         return false;
+    }
+
+    private boolean handleGuideChannelPageKey(int keyCode) {
+        if (!mGuideVisible) return false;
+        if (keyCode != KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
+                && keyCode != KeyEvent.KEYCODE_MEDIA_REWIND
+                && keyCode != KeyEvent.KEYCODE_MEDIA_NEXT
+                && keyCode != KeyEvent.KEYCODE_MEDIA_PREVIOUS) {
+            return false;
+        }
+        if (mDetailPopup != null && mDetailPopup.isShowing()) {
+            return true;
+        }
+        if (tvGuideBinding == null || tvGuideBinding.spinner.getVisibility() == View.VISIBLE || mAllChannels == null || mAllChannels.isEmpty()) {
+            return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) {
+            if (mCurrentDisplayChannelEndNdx >= mAllChannels.size() - 1) return true;
+            displayChannels(mCurrentDisplayChannelEndNdx + 1, PAGE_SIZE);
+            return true;
+        }
+
+        if (mCurrentDisplayChannelStartNdx <= 0) return true;
+        int pageUpStart = mCurrentDisplayChannelStartNdx - PAGE_SIZE;
+        if (pageUpStart < 0) pageUpStart = 0;
+        displayChannels(pageUpStart, PAGE_SIZE);
+        return true;
     }
 
     public void refreshFavorite(UUID channelId) {
