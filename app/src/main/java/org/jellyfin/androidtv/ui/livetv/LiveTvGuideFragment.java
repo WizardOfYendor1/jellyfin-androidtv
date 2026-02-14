@@ -387,10 +387,6 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
     }
 
     private boolean handleChannelPageKey(int keyCode) {
-        // Channel paging is disabled when filtering because all channels are already displayed.
-        if (mFilters.any()) {
-            return true;
-        }
         if (mDetailPopup != null && mDetailPopup.isShowing()) {
             return true;
         }
@@ -398,16 +394,65 @@ public class LiveTvGuideFragment extends Fragment implements LiveTvGuide, View.O
             return true;
         }
 
+        // Calculate how many rows are visible on screen
+        int visibleRows = Math.max(1, mChannelScroller.getHeight() / guideRowHeightPx);
+
+        // Find which row currently has focus (check both program rows and channel headers)
+        int currentRowNdx = -1;
+        boolean focusOnChannelHeader = false;
+        View focused = requireActivity().getCurrentFocus();
+        for (int i = 0; i < mProgramRows.getChildCount(); i++) {
+            View row = mProgramRows.getChildAt(i);
+            if (row == focused || (focused != null && row instanceof ViewGroup && ((ViewGroup) row).indexOfChild(focused) >= 0)) {
+                currentRowNdx = i;
+                break;
+            }
+        }
+        if (currentRowNdx < 0) {
+            // Check if focus is on a channel header
+            for (int i = 0; i < mChannels.getChildCount(); i++) {
+                if (focused == mChannels.getChildAt(i)) {
+                    currentRowNdx = i;
+                    focusOnChannelHeader = true;
+                    break;
+                }
+            }
+        }
+        if (currentRowNdx < 0) return true;
+
+        // Calculate target row, clamped to valid range
+        int targetRowNdx;
         if (keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || keyCode == KeyEvent.KEYCODE_MEDIA_NEXT) {
-            if (mCurrentDisplayChannelEndNdx >= mAllChannels.size() - 1) return true;
-            displayChannels(mCurrentDisplayChannelEndNdx + 1, PAGE_SIZE);
-            return true;
+            targetRowNdx = Math.min(currentRowNdx + visibleRows, mProgramRows.getChildCount() - 1);
+        } else {
+            targetRowNdx = Math.max(currentRowNdx - visibleRows, 0);
         }
 
-        if (mCurrentDisplayChannelStartNdx <= 0) return true;
-        int pageUpStart = mCurrentDisplayChannelStartNdx - PAGE_SIZE;
-        if (pageUpStart < 0) pageUpStart = 0;
-        displayChannels(pageUpStart, PAGE_SIZE);
+        if (focusOnChannelHeader) {
+            // Stay on channel headers when paging
+            View targetHeader = mChannels.getChildAt(targetRowNdx);
+            if (targetHeader != null) {
+                targetHeader.requestFocus();
+            }
+        } else {
+            View targetRow = mProgramRows.getChildAt(targetRowNdx);
+            if (targetRow instanceof ViewGroup) {
+                // Find the child at the same horizontal position to preserve time scroll position
+                int focusedLeft = focused != null ? focused.getLeft() : 0;
+                ViewGroup targetGroup = (ViewGroup) targetRow;
+                View best = targetRow;
+                for (int i = 0; i < targetGroup.getChildCount(); i++) {
+                    View child = targetGroup.getChildAt(i);
+                    if (child.getLeft() <= focusedLeft && child.getRight() > focusedLeft) {
+                        best = child;
+                        break;
+                    }
+                }
+                best.requestFocus();
+            } else if (targetRow != null) {
+                targetRow.requestFocus();
+            }
+        }
         return true;
     }
 
