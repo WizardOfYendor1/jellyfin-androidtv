@@ -910,14 +910,46 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         }
     }
 
+    private static final long ACCELERATION_WINDOW_MS = 1500;
+    private static final int[] ACCELERATION_MULTIPLIERS = {1, 2, 4, 8};
+    private int consecutiveSkipPresses = 0;
+    private long lastSkipTime = 0;
+    private boolean lastSkipForward = true;
+
     public void fastForward() {
+        long now = System.currentTimeMillis();
+        if (now - lastSkipTime > ACCELERATION_WINDOW_MS || !lastSkipForward) {
+            consecutiveSkipPresses = 0;
+        }
+        consecutiveSkipPresses = Math.min(consecutiveSkipPresses + 1, ACCELERATION_MULTIPLIERS.length);
+        lastSkipTime = now;
+        lastSkipForward = true;
+
+        int multiplier = ACCELERATION_MULTIPLIERS[consecutiveSkipPresses - 1];
         UserSettingPreferences prefs = KoinJavaComponent.<UserSettingPreferences>get(UserSettingPreferences.class);
-        skip(prefs.get(UserSettingPreferences.Companion.getSkipForwardLength()));
+        skip(prefs.get(UserSettingPreferences.Companion.getSkipForwardLength()) * multiplier);
+
+        if (mFragment != null && multiplier > 1) {
+            mFragment.showSeekSpeedIndicator(multiplier, true);
+        }
     }
 
     public void rewind() {
+        long now = System.currentTimeMillis();
+        if (now - lastSkipTime > ACCELERATION_WINDOW_MS || lastSkipForward) {
+            consecutiveSkipPresses = 0;
+        }
+        consecutiveSkipPresses = Math.min(consecutiveSkipPresses + 1, ACCELERATION_MULTIPLIERS.length);
+        lastSkipTime = now;
+        lastSkipForward = false;
+
+        int multiplier = ACCELERATION_MULTIPLIERS[consecutiveSkipPresses - 1];
         UserSettingPreferences prefs = KoinJavaComponent.<UserSettingPreferences>get(UserSettingPreferences.class);
-        skip(-prefs.get(UserSettingPreferences.Companion.getSkipBackLength()));
+        skip(-prefs.get(UserSettingPreferences.Companion.getSkipBackLength()) * multiplier);
+
+        if (mFragment != null && multiplier > 1) {
+            mFragment.showSeekSpeedIndicator(multiplier, false);
+        }
     }
 
     public void seek(long pos) {
@@ -963,41 +995,26 @@ public class PlaybackController implements PlaybackControllerNotifiable {
 
         if (mCurrentStreamInfo == null) return;
 
-        // rebuild the stream
-        // if an older device uses exoplayer to play a transcoded stream but falls back to the generic http stream instead of hls, rebuild the stream
-        if (!mVideoManager.isSeekable()) {
-            Timber.d("Seek method - rebuilding the stream");
-            //mkv transcodes require re-start of stream for seek
-            mVideoManager.stopPlayback();
-            mPlaybackState = PlaybackState.BUFFERING;
-
-            playbackManager.getValue().changeVideoStream(mFragment, mCurrentStreamInfo, mCurrentOptions, pos * 10000, new Response<StreamInfo>(mFragment.getLifecycle()) {
-                @Override
-                public void onResponse(StreamInfo response) {
-                    if (!isActive()) return;
-                    mCurrentStreamInfo = response;
-                    if (mVideoManager != null) {
-                        mVideoManager.setMediaStreamInfo(api.getValue(), response);
-                        mVideoManager.start();
-                    }
-                }
-
-                @Override
-                public void onError(Exception exception) {
-                    if (!isActive()) return;
-                    if (mFragment != null)
-                        Utils.showToast(mFragment.getContext(), R.string.msg_video_playback_error);
-                    Timber.e(exception, "Error trying to seek transcoded stream");
-                    // call stop so playback can be retried by the user
-                    stop();
-                }
-            });
+        if (!mVideoManager.isSeekable() && !canSeek()) {
+            // Truly non-seekable live stream - must rebuild
+            rebuildStream(pos);
+        } else if (!mVideoManager.isSeekable()) {
+            // ExoPlayer reports non-seekable but this is recorded content (canSeek() == true)
+            // Attempt in-stream seek first (leverages constant-bitrate seeking for TS files)
+            // Fall back to stream rebuild if ExoPlayer cannot handle it
+            Timber.d("Seek method - attempting in-stream seek on non-seekable stream");
+            mPlaybackState = PlaybackState.SEEKING;
+            if (mVideoManager.seekTo(pos) < 0) {
+                Timber.d("In-stream seek failed, falling back to stream rebuild");
+                rebuildStream(pos);
+            } else {
+                mVideoManager.play();
+                mPlaybackState = PlaybackState.PLAYING;
+                if (mFragment != null) mFragment.setFadingEnabled(true);
+                startReportLoop();
+            }
         } else {
-            // use the same approach to directplay seeking as setOnProgressListener
-            // set state to SEEKING
-            // if seek succeeds call play and mirror the logic in play() for unpausing. if fails call pause()
-            // stopProgressLoop() being called at the beginning of startProgressLoop keeps this from breaking. otherwise it would start twice
-            // if seek() is called from skip()
+            // ExoPlayer reports seekable - direct in-stream seek
             mPlaybackState = PlaybackState.SEEKING;
             if (mVideoManager.seekTo(pos) < 0) {
                 if (mFragment != null)
@@ -1010,6 +1027,36 @@ public class PlaybackController implements PlaybackControllerNotifiable {
                 startReportLoop();
             }
         }
+    }
+
+    private void rebuildStream(long pos) {
+        Timber.d("Seek method - rebuilding the stream");
+        mVideoManager.stopPlayback();
+        mPlaybackState = PlaybackState.BUFFERING;
+
+        playbackManager.getValue().changeVideoStream(mFragment, mCurrentStreamInfo, mCurrentOptions, pos * 10000, new Response<StreamInfo>(mFragment.getLifecycle()) {
+            @Override
+            public void onResponse(StreamInfo response) {
+                if (!isActive()) return;
+                wasSeeking = false;
+                mCurrentStreamInfo = response;
+                if (mVideoManager != null) {
+                    mVideoManager.setMediaStreamInfo(api.getValue(), response);
+                    mVideoManager.start();
+                }
+            }
+
+            @Override
+            public void onError(Exception exception) {
+                if (!isActive()) return;
+                wasSeeking = false;
+                if (mFragment != null)
+                    Utils.showToast(mFragment.getContext(), R.string.msg_video_playback_error);
+                Timber.e(exception, "Error trying to seek transcoded stream");
+                // call stop so playback can be retried by the user
+                stop();
+            }
+        });
     }
 
     private long currentSkipPos = 0;

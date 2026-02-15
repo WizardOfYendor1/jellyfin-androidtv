@@ -116,6 +116,20 @@
             app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <TextView
+        android:id="@+id/seek_speed_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@color/black_transparent"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="12dp"
+        android:textColor="@color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        tools:text="&gt;&gt; 4x" />
+
     <org.jellyfin.androidtv.ui.playback.overlay.SkipOverlayView
         android:id="@+id/skip_overlay"
         android:layout_width="match_parent"

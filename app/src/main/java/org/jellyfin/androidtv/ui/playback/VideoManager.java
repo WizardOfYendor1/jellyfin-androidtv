@@ -333,8 +333,13 @@ public class VideoManager {
             return -1;
 
         Timber.i("Exo length in seek is: %d", getDuration());
-        mExoPlayer.seekTo(pos);
-        return pos;
+        try {
+            mExoPlayer.seekTo(pos);
+            return pos;
+        } catch (IllegalStateException e) {
+            Timber.w(e, "ExoPlayer seekTo failed");
+            return -1;
+        }
     }
 
     private int getSubtitleSelectionFlags(MediaStream mediaStream) {

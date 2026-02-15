@@ -1276,6 +1276,26 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         binding.skipOverlay.setTargetPositionMs(null);
     }
 
+    private Runnable mHideSeekSpeedTask;
+
+    public void showSeekSpeedIndicator(int multiplier, boolean forward) {
+        if (binding == null) return;
+
+        String text = (forward ? "\u00BB " : "\u00AB ") + multiplier + "x";
+        binding.seekSpeedIndicator.setText(text);
+        binding.seekSpeedIndicator.setVisibility(View.VISIBLE);
+
+        if (mHideSeekSpeedTask != null) {
+            mHandler.removeCallbacks(mHideSeekSpeedTask);
+        }
+        mHideSeekSpeedTask = () -> {
+            if (binding != null) {
+                binding.seekSpeedIndicator.setVisibility(View.GONE);
+            }
+        };
+        mHandler.postDelayed(mHideSeekSpeedTask, 1500);
+    }
+
     private void prepareChapterAdapter() {
         BaseItemDto item = playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem();
         List<ChapterInfo> chapters = item.getChapters();
