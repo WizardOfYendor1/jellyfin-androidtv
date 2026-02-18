@@ -175,6 +175,7 @@ public class VideoManager {
             @Override
             public void onTracksChanged(Tracks tracks) {
                 Timber.d("Tracks changed");
+                if (mPlaybackControllerNotifiable != null) mPlaybackControllerNotifiable.onTracksChanged();
             }
         });
     }
@@ -538,6 +539,41 @@ public class VideoManager {
             return false;
         }
         return true;
+    }
+
+    public Tracks getExoPlayerCurrentTracks() {
+        if (!isInitialized()) return null;
+        return mExoPlayer.getCurrentTracks();
+    }
+
+    public boolean selectTextTrackByOrdinal(int ordinal) {
+        if (!isInitialized()) return false;
+        int currentOrdinal = 0;
+        Tracks exoTracks = mExoPlayer.getCurrentTracks();
+        for (Tracks.Group groupInfo : exoTracks.getGroups()) {
+            if (groupInfo.getType() != C.TRACK_TYPE_TEXT) continue;
+            // Skip external subtitle groups added by Jellyfin — handled via the normal subtitle path
+            if (groupInfo.getMediaTrackGroup().length > 0) {
+                String formatId = groupInfo.getMediaTrackGroup().getFormat(0).id;
+                if (formatId != null && formatId.contains("JF_EXTERNAL")) continue;
+            }
+            if (currentOrdinal == ordinal) {
+                try {
+                    TrackSelectionParameters.Builder params = mExoPlayer.getTrackSelectionParameters().buildUpon();
+                    params.setOverrideForType(new TrackSelectionOverride(groupInfo.getMediaTrackGroup(), 0));
+                    params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false);
+                    mExoPlayer.setTrackSelectionParameters(params.build());
+                    Timber.i("Selected text track ordinal %s", ordinal);
+                    return true;
+                } catch (Exception e) {
+                    Timber.w("Error selecting text track by ordinal");
+                    return false;
+                }
+            }
+            currentOrdinal++;
+        }
+        Timber.w("Text track ordinal %s not found", ordinal);
+        return false;
     }
 
     public float getPlaybackSpeed() {

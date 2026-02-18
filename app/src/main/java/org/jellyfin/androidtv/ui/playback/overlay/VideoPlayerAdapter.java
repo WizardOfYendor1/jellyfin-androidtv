@@ -101,7 +101,12 @@ public class VideoPlayerAdapter extends PlayerAdapter {
     }
 
     public boolean hasSubs() {
-        return StreamHelper.getSubtitleStreams(playbackController.getCurrentMediaSource()).size() > 0;
+        // Server-reported subtitle streams (standard path)
+        if (StreamHelper.getSubtitleStreams(playbackController.getCurrentMediaSource()).size() > 0) {
+            return true;
+        }
+        // ExoPlayer-discovered text tracks (e.g., live TV CC not reported by the server)
+        return playbackController.hasExoPlayerTextTracks();
     }
 
     public boolean hasMultiAudio() {

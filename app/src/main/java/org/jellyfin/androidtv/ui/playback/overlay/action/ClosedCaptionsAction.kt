@@ -7,6 +7,7 @@ import android.widget.PopupMenu
 import android.widget.Toast
 import org.jellyfin.androidtv.R
 import org.jellyfin.androidtv.ui.playback.PlaybackController
+import org.jellyfin.androidtv.ui.playback.getExoPlayerTextTrackGroups
 import org.jellyfin.androidtv.ui.playback.overlay.CustomPlaybackTransportControlGlue
 import org.jellyfin.androidtv.ui.playback.overlay.VideoPlayerAdapter
 import org.jellyfin.androidtv.ui.playback.setSubtitleIndex
@@ -49,6 +50,19 @@ class ClosedCaptionsAction(
 
 					add(0, sub.index, order++, sub.displayTitle).apply {
 						isChecked = sub.index == playbackController.subtitleStreamIndex
+					}
+				}
+
+				// ExoPlayer-discovered text tracks (e.g., live TV CC not reported by the server).
+				// Only shown when the server reports no subtitle streams (live TV scenario).
+				val serverSubCount = playbackController.currentMediaSource.mediaStreams.orEmpty()
+					.count { it.type == MediaStreamType.SUBTITLE }
+				if (serverSubCount == 0) {
+					for ((label, ordinal) in playbackController.getExoPlayerTextTrackGroups()) {
+						val syntheticId = -(1000 + ordinal)
+						add(0, syntheticId, order++, label).apply {
+							isChecked = playbackController.subtitleStreamIndex == syntheticId
+						}
 					}
 				}
 

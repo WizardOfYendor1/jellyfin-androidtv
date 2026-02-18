@@ -129,4 +129,10 @@ public class LeanbackOverlayFragment extends PlaybackSupportFragment {
         updatePlayState();
         playerGlue.addMediaActions();
     }
+
+    public void refreshMediaActions() {
+        if (playerGlue != null) {
+            playerGlue.addMediaActions();
+        }
+    }
 }

@@ -11,6 +11,8 @@ import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.Tracks;
 
 import org.jellyfin.androidtv.R;
 import org.jellyfin.androidtv.data.compat.PlaybackException;
@@ -679,6 +681,16 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         spinnerOff = true;
     }
 
+    public boolean hasExoPlayerTextTracks() {
+        if (!hasInitializedVideoManager()) return false;
+        Tracks tracks = mVideoManager.getExoPlayerCurrentTracks();
+        if (tracks == null) return false;
+        for (Tracks.Group group : tracks.getGroups()) {
+            if (group.getType() == C.TRACK_TYPE_TEXT) return true;
+        }
+        return false;
+    }
+
     public int getAudioStreamIndex() {
         int currIndex = -1;
 
@@ -1178,6 +1190,15 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     @Override
     public void onPlaybackSpeedChange(float newSpeed) {
         // TODO, implement speed change handling
+    }
+
+    @Override
+    public void onTracksChanged() {
+        // Refresh the CC button in case ExoPlayer discovered text tracks not reported by the server
+        // (e.g., EIA-608/EIA-708 closed captions in live TV streams, stripped from server MediaStream list)
+        if (mFragment != null && mFragment.leanbackOverlayFragment != null) {
+            mFragment.leanbackOverlayFragment.refreshMediaActions();
+        }
     }
 
     @Override

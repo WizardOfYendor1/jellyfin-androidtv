@@ -52,12 +52,39 @@ fun PlaybackController.disableDefaultSubtitles() {
 }
 
 @OptIn(UnstableApi::class)
+fun PlaybackController.getExoPlayerTextTrackGroups(): List<Pair<String, Int>> {
+	if (!hasInitializedVideoManager()) return emptyList()
+	val tracks = mVideoManager.mExoPlayer.currentTracks
+	val result = mutableListOf<Pair<String, Int>>()
+	var ordinal = 0
+	for (group in tracks.groups) {
+		if (group.type != C.TRACK_TYPE_TEXT) continue
+		// Skip external subtitle groups added by Jellyfin — handled via the normal subtitle path
+		val formatId = group.getTrackFormat(0).id
+		if (formatId != null && formatId.contains("JF_EXTERNAL")) continue
+		val label = group.getTrackFormat(0).label?.takeIf { it.isNotBlank() } ?: "CC ${ordinal + 1}"
+		result.add(Pair(label, ordinal))
+		ordinal++
+	}
+	return result
+}
+
+@OptIn(UnstableApi::class)
 @JvmOverloads
 fun PlaybackController.setSubtitleIndex(index: Int, force: Boolean = false) {
 	Timber.i("Switching subtitles from index ${mCurrentOptions.subtitleStreamIndex} to $index")
 
 	// Already using this subtitle index
 	if (mCurrentOptions.subtitleStreamIndex == index && !force) return
+
+	// ExoPlayer-discovered CC track (synthetic negative index, ≤ -1000, for live TV)
+	if (index <= -1000) {
+		val exoOrdinal = -(index + 1000)
+		if (mVideoManager.selectTextTrackByOrdinal(exoOrdinal)) {
+			mCurrentOptions.subtitleStreamIndex = index
+		}
+		return
+	}
 
 	// Disable subtitles
 	if (index == -1) {
