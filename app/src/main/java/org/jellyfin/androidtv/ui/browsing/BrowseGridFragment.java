@@ -55,6 +55,7 @@ import org.jellyfin.androidtv.ui.presentation.HorizontalGridPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
 import org.jellyfin.androidtv.util.ImageHelper;
 import org.jellyfin.androidtv.util.InfoLayoutHelper;
+import org.jellyfin.androidtv.util.KeyEventExtensionsKt;
 import org.jellyfin.androidtv.util.KeyProcessor;
 import org.jellyfin.androidtv.util.Utils;
 import org.jellyfin.androidtv.util.apiclient.EmptyResponse;
@@ -201,7 +202,40 @@ public class BrowseGridFragment extends Fragment implements View.OnKeyListener {
     @Override
     public boolean onKey(View v, int keyCode, KeyEvent event) {
         if (event.getAction() != KeyEvent.ACTION_UP) return false;
+
+        if (KeyEventExtensionsKt.isPageKey(keyCode)) {
+            return pageGrid(KeyEventExtensionsKt.isPageForward(keyCode));
+        }
+
         return keyProcessor.getValue().handleKey(keyCode, mCurrentItem, mActivity);
+    }
+
+    private boolean pageGrid(boolean forward) {
+        if (mGridView == null || mAdapter == null || mCardsScreenEst <= 0) return false;
+
+        int current = mGridView.getSelectedPosition();
+        int maxIndex = mAdapter.size() - 1;
+        int laneIndex = current % mCardsScreenStride;
+
+        int target;
+        if (forward) {
+            target = current + mCardsScreenEst;
+            if (target > maxIndex) {
+                // Snap to the last item in the same lane (same row or column)
+                target = laneIndex + mCardsScreenStride * ((maxIndex - laneIndex) / mCardsScreenStride);
+            }
+        } else {
+            target = current - mCardsScreenEst;
+            if (target < 0) {
+                // Snap to the first item in the same lane
+                target = laneIndex;
+            }
+        }
+
+        if (target != current) {
+            mGridView.setSelectedPosition(target);
+        }
+        return true;
     }
 
     @Override
