@@ -1264,11 +1264,16 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         }
 
         if (isLiveTv && directStreamLiveTv) {
+            Timber.w("Live TV direct play failed (attempt %d) - falling back to transcoding", playbackRetries + 1);
             Utils.showToast(mFragment.getContext(), mFragment.getString(R.string.msg_error_live_stream));
             directStreamLiveTv = false;
         } else {
             String msg = mFragment.getString(R.string.video_error_unknown_error);
-            Timber.e("Playback error - %s", msg);
+            Timber.e("Playback error - %s (playMethod: %s, retries: %d, isLiveTv: %b)",
+                    msg,
+                    mCurrentStreamInfo != null ? mCurrentStreamInfo.getPlayMethod() : "unknown",
+                    playbackRetries,
+                    isLiveTv);
         }
         playerErrorEncountered();
     }
