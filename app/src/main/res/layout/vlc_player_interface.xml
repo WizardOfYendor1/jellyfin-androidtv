@@ -52,17 +52,29 @@
     <FrameLayout
         android:id="@+id/popupArea"
         android:layout_width="fill_parent"
-        android:layout_height="225dp"
+        android:layout_height="300dp"
         android:layout_gravity="bottom"
         android:background="@color/black_transparent"
         android:visibility="gone">
 
+        <TextView
+            android:id="@+id/popupDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:paddingHorizontal="48dp"
+            android:paddingTop="12dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/white"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:id="@+id/rows_area"
             android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
+            android:layout_height="225dp"
             android:layout_gravity="start|bottom"
-            android:layout_marginTop="16dp"
             android:orientation="horizontal" />
     </FrameLayout>
 
