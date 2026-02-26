@@ -783,9 +783,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     private void showChapterPanel() {
         setFadingEnabled(false);
-        // Hide the rows content until the position is set (in the postDelayed callback)
-        // to prevent a visible "jerk" from the old position to the new one.
-        binding.rowsArea.setVisibility(View.INVISIBLE);
         binding.popupArea.startAnimation(showPopup);
         binding.skipOverlay.setSkipUiEnabled(!mIsVisible && !mGuideVisible && !mPopupPanelVisible && !mProgramInfoVisible);
     }
@@ -1252,29 +1249,29 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (channelDataIsStale()) {
             prepareChannelAdapter();
         }
+        // Pre-position before the panel animates in to avoid a visible jerk
+        int ndx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
+        if (ndx >= 0 && mCircularChannelAdapter != null) {
+            mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
+        }
         showChapterPanel();
         mHandler.postDelayed(() -> {
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
-            int ndx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
-            if (ndx >= 0 && mCircularChannelAdapter != null) {
-                mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
-            }
-            binding.rowsArea.setVisibility(View.VISIBLE);
             mPopupPanelVisible = true;
         }, 500);
     }
 
     public void showChapterSelector() {
+        // Pre-position before the panel animates in to avoid a visible jerk
+        int ndx = getCurrentChapterIndex(playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem(), playbackControllerContainer.getValue().getPlaybackController().getCurrentPosition() * 10000);
+        if (ndx >= 0 && mCircularChapterAdapter != null) {
+            mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(ndx));
+        }
         showChapterPanel();
         mHandler.postDelayed(() -> {
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
-            int ndx = getCurrentChapterIndex(playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem(), playbackControllerContainer.getValue().getPlaybackController().getCurrentPosition() * 10000);
-            if (ndx >= 0 && mCircularChapterAdapter != null) {
-                mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(ndx));
-            }
-            binding.rowsArea.setVisibility(View.VISIBLE);
             mPopupPanelVisible = true;
         }, 500);
     }
