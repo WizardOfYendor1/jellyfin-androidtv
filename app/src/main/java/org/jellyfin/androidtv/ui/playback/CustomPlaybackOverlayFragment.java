@@ -730,6 +730,9 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     private void showChapterPanel() {
         setFadingEnabled(false);
+        // Hide the rows content until the position is set (in the postDelayed callback)
+        // to prevent a visible "jerk" from the old position to the new one.
+        binding.rowsArea.setVisibility(View.INVISIBLE);
         binding.popupArea.startAnimation(showPopup);
         binding.skipOverlay.setSkipUiEnabled(!mIsVisible && !mGuideVisible && !mPopupPanelVisible);
     }
@@ -1136,6 +1139,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (ndx >= 0 && mCircularChannelAdapter != null) {
                 mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
             }
+            binding.rowsArea.setVisibility(View.VISIBLE);
             mPopupPanelVisible = true;
         }, 500);
     }
@@ -1149,6 +1153,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (ndx >= 0 && mCircularChapterAdapter != null) {
                 mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(ndx));
             }
+            binding.rowsArea.setVisibility(View.VISIBLE);
             mPopupPanelVisible = true;
         }, 500);
     }
