@@ -96,6 +96,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private PositionableListRowPresenter mPopupRowPresenter;
     private CircularObjectAdapter mCircularChannelAdapter;
     private CircularObjectAdapter mCircularChapterAdapter;
+    private Runnable mDescriptionUpdateTask;
 
     //Live guide items
     private static final int PAGE_SIZE = 75;
@@ -194,6 +195,26 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         mPopupRowAdapter = new ArrayObjectAdapter(mPopupRowPresenter);
         mPopupRowsFragment.setAdapter(mPopupRowAdapter);
         mPopupRowsFragment.setOnItemViewClickedListener(itemViewClickedListener);
+        mPopupRowsFragment.setOnItemViewSelectedListener((itemViewHolder, item, rowViewHolder, row) -> {
+            // Cancel any pending description update (user is still scrolling)
+            if (mDescriptionUpdateTask != null) {
+                mHandler.removeCallbacks(mDescriptionUpdateTask);
+            }
+            binding.popupDescription.setVisibility(View.GONE);
+
+            if (item instanceof BaseItemDto) {
+                BaseItemDto channel = (BaseItemDto) item;
+                BaseItemDto program = channel.getCurrentProgram();
+                String overview = (program != null) ? program.getOverview() : null;
+                if (overview != null && !overview.isEmpty()) {
+                    mDescriptionUpdateTask = () -> {
+                        binding.popupDescription.setText(overview);
+                        binding.popupDescription.setVisibility(View.VISIBLE);
+                    };
+                    mHandler.postDelayed(mDescriptionUpdateTask, 400);
+                }
+            }
+        });
 
         // And the Live Guide element
         tvGuideBinding = OverlayTvGuideBinding.inflate(inflater, container, false);
@@ -736,6 +757,11 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     private void hidePopupPanel() {
         startFadeTimer();
+        if (mDescriptionUpdateTask != null) {
+            mHandler.removeCallbacks(mDescriptionUpdateTask);
+        }
+        binding.popupDescription.setVisibility(View.GONE);
+        binding.popupDescription.setText("");
         binding.popupArea.startAnimation(hidePopup);
         mPopupPanelVisible = false;
         binding.skipOverlay.setSkipUiEnabled(!mIsVisible && !mGuideVisible && !mPopupPanelVisible);
