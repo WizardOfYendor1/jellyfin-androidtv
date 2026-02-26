@@ -1128,7 +1128,9 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     };
 
     public void showQuickChannelChanger() {
-        // Pre-position before the panel animates in to avoid a visible jerk
+        // Pre-position before the panel animates in to avoid a visible jerk.
+        // If the adapter isn't ready yet (async load after stale data refresh),
+        // the delayed callback below will retry positioning once it's available.
         int ndx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
         if (ndx >= 0 && mCircularChannelAdapter != null) {
             mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
@@ -1137,6 +1139,13 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         mHandler.postDelayed(() -> {
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
+            // Retry positioning if the adapter wasn't ready at pre-position time
+            if (mCircularChannelAdapter != null) {
+                int idx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
+                if (idx >= 0) {
+                    mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(idx));
+                }
+            }
             mPopupPanelVisible = true;
         }, 500);
     }
