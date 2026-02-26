@@ -62,6 +62,7 @@ import org.jellyfin.androidtv.ui.navigation.NavigationRepository;
 import org.jellyfin.androidtv.ui.playback.overlay.LeanbackOverlayFragment;
 import org.jellyfin.androidtv.ui.presentation.CardPresenter;
 import org.jellyfin.androidtv.ui.presentation.ChannelCardPresenter;
+import org.jellyfin.androidtv.ui.presentation.CircularObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.MutableObjectAdapter;
 import org.jellyfin.androidtv.ui.presentation.PositionableListRowPresenter;
 import org.jellyfin.androidtv.util.CoroutineUtils;
@@ -93,6 +94,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private ListRow mChapterRow;
     private ArrayObjectAdapter mPopupRowAdapter;
     private PositionableListRowPresenter mPopupRowPresenter;
+    private CircularObjectAdapter mCircularChannelAdapter;
+    private CircularObjectAdapter mCircularChapterAdapter;
 
     //Live guide items
     private static final int PAGE_SIZE = 75;
@@ -1130,8 +1133,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
             int ndx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
-            if (ndx > 0) {
-                mPopupRowPresenter.setPosition(ndx);
+            if (ndx >= 0 && mCircularChannelAdapter != null) {
+                mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
             }
             mPopupPanelVisible = true;
         }, 500);
@@ -1143,8 +1146,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
 
             int ndx = getCurrentChapterIndex(playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem(), playbackControllerContainer.getValue().getPlaybackController().getCurrentPosition() * 10000);
-            if (ndx > 0) {
-                mPopupRowPresenter.setPosition(ndx);
+            if (ndx >= 0 && mCircularChapterAdapter != null) {
+                mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(ndx));
             }
             mPopupPanelVisible = true;
         }, 500);
@@ -1276,25 +1279,27 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         List<ChapterInfo> chapters = item.getChapters();
 
         if (chapters != null && !chapters.isEmpty()) {
-            // create chapter row for later use
+            // create chapter row with circular scrolling
             ItemRowAdapter chapterAdapter = new ItemRowAdapter(requireContext(), BaseItemExtensionsKt.buildChapterItems(item), new CardPresenter(true, 110), new MutableObjectAdapter<Row>());
             chapterAdapter.Retrieve();
+            mCircularChapterAdapter = new CircularObjectAdapter(chapterAdapter);
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);
-            mChapterRow = new ListRow(new HeaderItem(requireContext().getString(R.string.chapters)), chapterAdapter);
+            mChapterRow = new ListRow(new HeaderItem(requireContext().getString(R.string.chapters)), mCircularChapterAdapter);
             mPopupRowAdapter.add(mChapterRow);
         }
 
     }
 
     private void prepareChannelAdapter() {
-        // create quick channel change row
+        // create quick channel change row with circular scrolling
         TvManager.loadAllChannels(this, response -> {
             List<BaseItemDto> channels = TvManager.getAllChannels();
             if (channels == null) return null;
-            ArrayObjectAdapter channelAdapter = new ArrayObjectAdapter(new ChannelCardPresenter());
-            channelAdapter.addAll(0, channels);
+            ArrayObjectAdapter innerAdapter = new ArrayObjectAdapter(new ChannelCardPresenter());
+            innerAdapter.addAll(0, channels);
+            mCircularChannelAdapter = new CircularObjectAdapter(innerAdapter);
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);
-            mChapterRow = new ListRow(new HeaderItem(requireContext().getString(R.string.channels)), channelAdapter);
+            mChapterRow = new ListRow(new HeaderItem(requireContext().getString(R.string.channels)), mCircularChannelAdapter);
             mPopupRowAdapter.add(mChapterRow);
             return null;
         });
