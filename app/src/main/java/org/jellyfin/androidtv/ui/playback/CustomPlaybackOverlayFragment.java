@@ -209,6 +209,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 String overview = (program != null) ? program.getOverview() : null;
                 if (overview != null && !overview.isEmpty()) {
                     mDescriptionUpdateTask = () -> {
+                        if (binding == null) return;
                         binding.popupDescription.setText(overview);
                     };
                     mHandler.postDelayed(mDescriptionUpdateTask, 400);
@@ -253,6 +254,10 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     public void onDestroyView() {
         super.onDestroyView();
 
+        if (mDescriptionUpdateTask != null) {
+            mHandler.removeCallbacks(mDescriptionUpdateTask);
+            mDescriptionUpdateTask = null;
+        }
         binding = null;
         // To fix race condition in hide timer
         mIsVisible = false;
