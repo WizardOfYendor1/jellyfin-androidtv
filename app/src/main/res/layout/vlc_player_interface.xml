@@ -45,7 +45,7 @@
         android:layout_width="fill_parent"
         android:layout_height="300dp"
         android:layout_gravity="bottom"
-        android:background="@color/black_transparent"
+        android:background="@color/black_opaque"
         android:orientation="vertical"
         android:visibility="gone">
 
@@ -63,13 +63,13 @@
         <TextView
             android:id="@+id/popupDescription"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="48dp"
             android:paddingHorizontal="48dp"
             android:paddingTop="4dp"
             android:ellipsize="end"
             android:maxLines="2"
             android:textColor="@color/white"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:visibility="gone" />
 
         <LinearLayout
