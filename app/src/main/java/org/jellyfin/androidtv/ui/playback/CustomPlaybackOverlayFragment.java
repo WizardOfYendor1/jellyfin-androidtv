@@ -205,7 +205,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (mDescriptionUpdateTask != null) {
                 mHandler.removeCallbacks(mDescriptionUpdateTask);
             }
-            binding.popupDescription.setVisibility(View.GONE);
+            // Clear text immediately while scrolling (space stays reserved)
+            binding.popupDescription.setText("");
 
             if (item instanceof BaseItemDto) {
                 BaseItemDto channel = (BaseItemDto) item;
@@ -218,7 +219,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 if (overview != null && !overview.isEmpty()) {
                     mDescriptionUpdateTask = () -> {
                         binding.popupDescription.setText(overview);
-                        binding.popupDescription.setVisibility(View.VISIBLE);
                     };
                     mHandler.postDelayed(mDescriptionUpdateTask, 400);
                 }
@@ -1282,9 +1282,11 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (channelDataIsStale()) {
             prepareChannelAdapter();
         }
-        // Show header for channels
+        // Show header and reserve description space for channels
         binding.popupHeader.setText(R.string.channels);
         binding.popupHeader.setVisibility(View.VISIBLE);
+        binding.popupDescription.setText("");
+        binding.popupDescription.setVisibility(View.VISIBLE);
         // Pre-position before the panel animates in to avoid a visible jerk.
         // If the adapter isn't ready yet (async load after stale data refresh),
         // the delayed callback below will retry positioning once it's available.
@@ -1308,9 +1310,10 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     }
 
     public void showChapterSelector() {
-        // Show header for chapters
+        // Show header for chapters (no description area needed)
         binding.popupHeader.setText(R.string.chapters);
         binding.popupHeader.setVisibility(View.VISIBLE);
+        binding.popupDescription.setVisibility(View.GONE);
         // Pre-position before the panel animates in to avoid a visible jerk
         int ndx = getCurrentChapterIndex(playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem(), playbackControllerContainer.getValue().getPlaybackController().getCurrentPosition() * 10000);
         if (ndx >= 0 && mCircularChapterAdapter != null) {
