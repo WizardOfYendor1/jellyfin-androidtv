@@ -52,7 +52,7 @@
     <FrameLayout
         android:id="@+id/popupArea"
         android:layout_width="fill_parent"
-        android:layout_height="300dp"
+        android:layout_height="225dp"
         android:layout_gravity="bottom"
         android:background="@color/black_transparent"
         android:visibility="gone">
@@ -63,7 +63,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="top"
             android:paddingHorizontal="48dp"
-            android:paddingTop="12dp"
+            android:paddingTop="8dp"
             android:ellipsize="end"
             android:maxLines="2"
             android:textColor="@color/white"
@@ -73,8 +73,9 @@
         <LinearLayout
             android:id="@+id/rows_area"
             android:layout_width="fill_parent"
-            android:layout_height="225dp"
+            android:layout_height="wrap_content"
             android:layout_gravity="start|bottom"
+            android:layout_marginBottom="8dp"
             android:orientation="horizontal" />
     </FrameLayout>
 

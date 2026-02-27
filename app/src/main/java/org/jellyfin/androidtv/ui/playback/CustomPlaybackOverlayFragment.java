@@ -211,6 +211,10 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 BaseItemDto channel = (BaseItemDto) item;
                 BaseItemDto program = channel.getCurrentProgram();
                 String overview = (program != null) ? program.getOverview() : null;
+                Timber.d("Channel selected: %s, program: %s, overview: %s",
+                    channel.getName(),
+                    program != null ? program.getName() : "null",
+                    overview != null ? overview.substring(0, Math.min(50, overview.length())) : "null");
                 if (overview != null && !overview.isEmpty()) {
                     mDescriptionUpdateTask = () -> {
                         binding.popupDescription.setText(overview);
@@ -218,6 +222,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     };
                     mHandler.postDelayed(mDescriptionUpdateTask, 400);
                 }
+            } else {
+                Timber.d("Non-channel item selected: %s", item != null ? item.getClass().getSimpleName() : "null");
             }
         });
 
