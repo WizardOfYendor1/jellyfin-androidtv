@@ -52,7 +52,7 @@
     <LinearLayout
         android:id="@+id/popupArea"
         android:layout_width="fill_parent"
-        android:layout_height="225dp"
+        android:layout_height="300dp"
         android:layout_gravity="bottom"
         android:background="@color/black_opaque"
         android:orientation="vertical"

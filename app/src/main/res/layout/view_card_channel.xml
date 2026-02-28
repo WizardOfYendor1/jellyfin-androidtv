@@ -11,14 +11,13 @@
     <ImageView
         android:id="@+id/favImage"
         android:layout_width="16dp"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
+        android:layout_height="16dp"
         android:layout_alignParentTop="true"
-        android:layout_centerInParent="false"
-        android:layout_centerVertical="true"
+        android:layout_alignParentStart="true"
         android:layout_marginEnd="4dp"
+        android:layout_centerVertical="false"
         android:src="@drawable/ic_heart_red"
-        android:visibility="visible" />
+        android:visibility="gone" />
 
     <TextView
         android:layout_width="match_parent"
