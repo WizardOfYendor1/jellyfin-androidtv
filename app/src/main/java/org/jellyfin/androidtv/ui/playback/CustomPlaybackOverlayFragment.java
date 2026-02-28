@@ -384,6 +384,9 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
             @Override
             public void onAnimationEnd(Animation animation) {
+                binding.popupHeader.setVisibility(View.GONE);
+                binding.popupDescription.setVisibility(View.GONE);
+                binding.popupDescription.setText("");
                 binding.popupArea.setVisibility(View.GONE);
             }
 
@@ -824,9 +827,8 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (mDescriptionUpdateTask != null) {
             mHandler.removeCallbacks(mDescriptionUpdateTask);
         }
-        binding.popupHeader.setVisibility(View.GONE);
-        binding.popupDescription.setVisibility(View.GONE);
-        binding.popupDescription.setText("");
+        // Don't change visibility before the animation — let the whole panel fade out together.
+        // Header/description are reset in hidePopup's onAnimationEnd (which sets popupArea GONE).
         binding.popupArea.startAnimation(hidePopup);
         mPopupPanelVisible = false;
         binding.skipOverlay.setSkipUiEnabled(!mIsVisible && !mGuideVisible && !mPopupPanelVisible && !mProgramInfoVisible);
@@ -1308,6 +1310,16 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 int idx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
                 if (idx >= 0) {
                     mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(idx));
+                    // Populate description for the initially focused channel since the
+                    // selection listener may not fire when the overlay first opens.
+                    BaseItemDto channel = (BaseItemDto) mCircularChannelAdapter.get(mCircularChannelAdapter.centerPosition(idx));
+                    if (channel != null) {
+                        BaseItemDto program = channel.getCurrentProgram();
+                        String overview = (program != null) ? program.getOverview() : null;
+                        if (overview != null && !overview.isEmpty()) {
+                            binding.popupDescription.setText(overview);
+                        }
+                    }
                 }
             }
             mPopupPanelVisible = true;
