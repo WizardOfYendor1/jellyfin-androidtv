@@ -97,6 +97,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private CircularObjectAdapter mCircularChannelAdapter;
     private CircularObjectAdapter mCircularChapterAdapter;
     private Runnable mDescriptionUpdateTask;
+    private boolean mQuickChannelChangerVisible = false;
 
     //Live guide items
     private static final int PAGE_SIZE = 75;
@@ -772,6 +773,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         // Header/description are reset in hidePopup's onAnimationEnd (which sets popupArea GONE).
         binding.popupArea.startAnimation(hidePopup);
         mPopupPanelVisible = false;
+        mQuickChannelChangerVisible = false;
         binding.skipOverlay.setSkipUiEnabled(!mIsVisible && !mGuideVisible && !mPopupPanelVisible);
     }
 
@@ -1162,6 +1164,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     };
 
     public void showQuickChannelChanger() {
+        mQuickChannelChangerVisible = true;
         // Show header and reserve description space for channels
         binding.popupHeader.setText(R.string.channels);
         binding.popupHeader.setVisibility(View.VISIBLE);
@@ -1201,6 +1204,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     }
 
     public void showChapterSelector() {
+        mQuickChannelChangerVisible = false;
         // Show header for chapters (no description area needed)
         binding.popupHeader.setText(R.string.chapters);
         binding.popupHeader.setVisibility(View.VISIBLE);
@@ -1364,7 +1368,19 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     }
 
     private void prepareChannelAdapter() {
+        UUID focusedChannelId = null;
+        if (mQuickChannelChangerVisible && mCircularChannelAdapter != null) {
+            int focusedPosition = mPopupRowPresenter.getPosition();
+            if (focusedPosition >= 0) {
+                Object focusedItem = mCircularChannelAdapter.get(focusedPosition);
+                if (focusedItem instanceof BaseItemDto) {
+                    focusedChannelId = ((BaseItemDto) focusedItem).getId();
+                }
+            }
+        }
+
         // create quick channel change row with circular scrolling
+        UUID finalFocusedChannelId = focusedChannelId;
         TvManager.loadAllChannels(this, response -> {
             List<BaseItemDto> channels = TvManager.getAllChannels();
             if (channels == null) return null;
@@ -1374,6 +1390,21 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);
             mChapterRow = new ListRow(mCircularChannelAdapter);
             mPopupRowAdapter.add(mChapterRow);
+
+            if (mQuickChannelChangerVisible) {
+                int focusIndex = -1;
+                if (finalFocusedChannelId != null) {
+                    focusIndex = TvManager.getAllChannelsIndex(finalFocusedChannelId);
+                }
+                if (focusIndex < 0) {
+                    focusIndex = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
+                }
+                if (focusIndex >= 0) {
+                    int focusPosition = mCircularChannelAdapter.centerPosition(focusIndex);
+                    mPopupRowPresenter.setPosition(focusPosition);
+                    mHandler.post(() -> mPopupRowPresenter.setPosition(focusPosition));
+                }
+            }
             return null;
         });
     }
