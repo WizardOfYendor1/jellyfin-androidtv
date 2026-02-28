@@ -1214,6 +1214,17 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         }
         mPopupPanelVisible = true;
         showChapterPanel();
+        mHandler.postDelayed(() -> {
+            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
+            // Retry positioning in case the viewHolder wasn't bound yet on first open
+            if (mCircularChapterAdapter != null) {
+                int idx = getCurrentChapterIndex(controller.getCurrentlyPlayingItem(),
+                    controller.getCurrentPosition() * 10000);
+                if (idx >= 0) {
+                    mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(idx));
+                }
+            }
+        }, 500);
     }
 
     private int getCurrentChapterIndex(BaseItemDto item, long pos) {
