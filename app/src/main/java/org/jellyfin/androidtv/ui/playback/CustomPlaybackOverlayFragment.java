@@ -29,7 +29,6 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.Fragment;
 import androidx.leanback.app.RowsSupportFragment;
 import androidx.leanback.widget.ArrayObjectAdapter;
-import androidx.leanback.widget.HeaderItem;
 import androidx.leanback.widget.ListRow;
 import androidx.leanback.widget.OnItemViewClickedListener;
 import androidx.leanback.widget.Presenter;
@@ -98,6 +97,9 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private CircularObjectAdapter mCircularChapterAdapter;
     private Runnable mDescriptionUpdateTask;
     private boolean mQuickChannelChangerVisible = false;
+
+    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 400;
+    private static final long TICKS_PER_MS = 10_000;
 
     //Live guide items
     private static final int PAGE_SIZE = 75;
@@ -192,11 +194,13 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                     .findFragmentById(R.id.rows_area);
         }
 
-        mPopupRowPresenter = new PositionableListRowPresenter(null, true);
+        mPopupRowPresenter = new PositionableListRowPresenter(null, /* trapFocus */ true);
         mPopupRowAdapter = new ArrayObjectAdapter(mPopupRowPresenter);
         mPopupRowsFragment.setAdapter(mPopupRowAdapter);
         mPopupRowsFragment.setOnItemViewClickedListener(itemViewClickedListener);
         mPopupRowsFragment.setOnItemViewSelectedListener((itemViewHolder, item, rowViewHolder, row) -> {
+            if (!mQuickChannelChangerVisible) return;
+
             // Cancel any pending description update (user is still scrolling)
             if (mDescriptionUpdateTask != null) {
                 mHandler.removeCallbacks(mDescriptionUpdateTask);
@@ -213,7 +217,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                         if (binding == null) return;
                         binding.popupDescription.setText(overview);
                     };
-                    mHandler.postDelayed(mDescriptionUpdateTask, 400);
+                    mHandler.postDelayed(mDescriptionUpdateTask, OVERLAY_GUIDE_TEXT_DEBOUNCE_MS);
                 }
             }
         });
@@ -409,7 +413,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                                   RowPresenter.ViewHolder rowViewHolder, Row row) {
             if (item instanceof ChapterItemInfoBaseRowItem) {
                 ChapterItemInfoBaseRowItem rowItem = (ChapterItemInfoBaseRowItem) item;
-                Long start = rowItem.getChapterInfo().getStartPositionTicks() / 10000;
+                Long start = rowItem.getChapterInfo().getStartPositionTicks() / TICKS_PER_MS;
                 playbackControllerContainer.getValue().getPlaybackController().seek(start);
                 hidePopupPanel();
             } else if (item instanceof BaseItemDto) {
@@ -1170,37 +1174,40 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         binding.popupHeader.setVisibility(View.VISIBLE);
         binding.popupDescription.setText("");
         binding.popupDescription.setVisibility(View.VISIBLE);
-        // Pre-position before the panel animates in to avoid a visible jerk.
-        // If the adapter isn't ready yet (async load after stale data refresh),
-        // the delayed callback below will retry positioning once it's available.
-        int ndx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
-        if (ndx >= 0 && mCircularChannelAdapter != null) {
-            mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(ndx));
-        }
+
+        // Pre-position if the adapter is already loaded. If it isn't ready yet
+        // (async load in prepareChannelAdapter), that callback will set position
+        // when it completes — the presenter queues it until the row is bound.
+        positionQuickChannelIfReady();
+
         mPopupPanelVisible = true;
         showChapterPanel();
-        mHandler.postDelayed(() -> {
-            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
+    }
 
-            // Retry positioning if the adapter wasn't ready at pre-position time
-            if (mCircularChannelAdapter != null) {
-                int idx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
-                if (idx >= 0) {
-                    mPopupRowPresenter.setPosition(mCircularChannelAdapter.centerPosition(idx));
-                    // Populate description for the initially focused channel since the
-                    // selection listener may not fire when the overlay first opens.
-                    BaseItemDto channel = (BaseItemDto) mCircularChannelAdapter.get(
-                        mCircularChannelAdapter.centerPosition(idx));
-                    if (channel != null) {
-                        BaseItemDto program = channel.getCurrentProgram();
-                        String overview = (program != null) ? program.getOverview() : null;
-                        if (overview != null && !overview.isEmpty()) {
-                            binding.popupDescription.setText(overview);
-                        }
-                    }
-                }
-            }
-        }, 500);
+    private void positionQuickChannelIfReady() {
+        if (binding == null || mCircularChannelAdapter == null) return;
+
+        int idx = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
+        // If the "last channel" index is temporarily stale (for example after tuning
+        // to a brand-new channel from guide), keep circular behavior by centering on
+        // the first item instead of leaving selection at position 0 (hard left edge).
+        if (idx < 0) idx = 0;
+
+        int centeredPosition = mCircularChannelAdapter.centerPosition(idx);
+        if (centeredPosition < 0) return;
+
+        mPopupRowPresenter.setPosition(centeredPosition);
+
+        // Populate description for initially focused channel in case selection callback
+        // does not fire when the popup first appears.
+        Object focusedItem = mCircularChannelAdapter.get(centeredPosition);
+        if (!(focusedItem instanceof BaseItemDto)) return;
+
+        BaseItemDto program = ((BaseItemDto) focusedItem).getCurrentProgram();
+        String overview = (program != null) ? program.getOverview() : null;
+        if (overview != null && !overview.isEmpty()) {
+            binding.popupDescription.setText(overview);
+        }
     }
 
     public void showChapterSelector() {
@@ -1209,27 +1216,18 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         binding.popupHeader.setText(R.string.chapters);
         binding.popupHeader.setVisibility(View.VISIBLE);
         binding.popupDescription.setVisibility(View.GONE);
-        // Pre-position before the panel animates in to avoid a visible jerk
-        PlaybackController controller = playbackControllerContainer.getValue().getPlaybackController();
+        // Position before the panel animates in. If the row isn't bound yet,
+        // the presenter queues the position until onBindRowViewHolder fires.
+        PlaybackController controller =
+            playbackControllerContainer.getValue().getPlaybackController();
+        if (controller == null) return;
         int ndx = getCurrentChapterIndex(controller.getCurrentlyPlayingItem(),
-            controller.getCurrentPosition() * 10000);
+            controller.getCurrentPosition() * TICKS_PER_MS);
         if (ndx >= 0 && mCircularChapterAdapter != null) {
             mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(ndx));
         }
         mPopupPanelVisible = true;
         showChapterPanel();
-        mHandler.postDelayed(() -> {
-            if (!getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) return;
-            // Retry positioning in case the viewHolder wasn't bound yet on first open
-            if (mCircularChapterAdapter != null) {
-                int idx = getCurrentChapterIndex(
-                    playbackControllerContainer.getValue().getPlaybackController().getCurrentlyPlayingItem(),
-                    playbackControllerContainer.getValue().getPlaybackController().getCurrentPosition() * 10000);
-                if (idx >= 0) {
-                    mPopupRowPresenter.setPosition(mCircularChapterAdapter.centerPosition(idx));
-                }
-            }
-        }, 500);
     }
 
     private int getCurrentChapterIndex(BaseItemDto item, long pos) {
@@ -1361,6 +1359,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             chapterAdapter.Retrieve();
             mCircularChapterAdapter = new CircularObjectAdapter(chapterAdapter);
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);
+            mPopupRowPresenter.invalidate();
             mChapterRow = new ListRow(mCircularChapterAdapter);
             mPopupRowAdapter.add(mChapterRow);
         }
@@ -1371,7 +1370,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         UUID focusedChannelId = null;
         if (mQuickChannelChangerVisible && mCircularChannelAdapter != null) {
             int focusedPosition = mPopupRowPresenter.getPosition();
-            if (focusedPosition >= 0) {
+            if (focusedPosition >= 0 && mCircularChannelAdapter.getRealSize() > 0) {
                 Object focusedItem = mCircularChannelAdapter.get(focusedPosition);
                 if (focusedItem instanceof BaseItemDto) {
                     focusedChannelId = ((BaseItemDto) focusedItem).getId();
@@ -1388,6 +1387,14 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             innerAdapter.addAll(0, channels);
             mCircularChannelAdapter = new CircularObjectAdapter(innerAdapter);
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);
+            // The invalidate here deals with a very annoying problem.
+            // It's pseudo-better "work around" to a prior attempt to deal with this.
+            // As best as I can tell, RecyclerView defers unbind until its next layout pass,
+            // so the presenter still holds a stale viewHolder.
+            // Explictly invalidate it so the position set below goes to pendingPosition
+            // and is applied when the new row is bound in onBindRowViewHolder.
+            // This also applies to chapters.
+            mPopupRowPresenter.invalidate();
             mChapterRow = new ListRow(mCircularChannelAdapter);
             mPopupRowAdapter.add(mChapterRow);
 
@@ -1399,10 +1406,11 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
                 if (focusIndex < 0) {
                     focusIndex = TvManager.getAllChannelsIndex(TvManager.getLastLiveTvChannel());
                 }
-                if (focusIndex >= 0) {
-                    int focusPosition = mCircularChannelAdapter.centerPosition(focusIndex);
-                    mPopupRowPresenter.setPosition(focusPosition);
-                    mHandler.post(() -> mPopupRowPresenter.setPosition(focusPosition));
+                // Fall back to first channel if the target wasn't found.
+                if (focusIndex < 0) focusIndex = 0;
+                int pos = mCircularChannelAdapter.centerPosition(focusIndex);
+                if (pos >= 0) {
+                    mPopupRowPresenter.setPosition(pos);
                 }
             }
             return null;
