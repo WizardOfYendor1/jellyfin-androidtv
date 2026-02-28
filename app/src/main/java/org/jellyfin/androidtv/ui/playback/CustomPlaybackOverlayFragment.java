@@ -1353,7 +1353,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
         if (chapters != null && !chapters.isEmpty()) {
             // create chapter row with circular scrolling
-            ItemRowAdapter chapterAdapter = new ItemRowAdapter(requireContext(), BaseItemExtensionsKt.buildChapterItems(item), new CardPresenter(true, 110), new MutableObjectAdapter<Row>());
+            ItemRowAdapter chapterAdapter = new ItemRowAdapter(requireContext(), BaseItemExtensionsKt.buildChapterItems(item), new CardPresenter(true, 110, true), new MutableObjectAdapter<Row>());
             chapterAdapter.Retrieve();
             mCircularChapterAdapter = new CircularObjectAdapter(chapterAdapter);
             if (mChapterRow != null) mPopupRowAdapter.remove(mChapterRow);

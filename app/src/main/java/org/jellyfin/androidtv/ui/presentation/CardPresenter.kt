@@ -5,6 +5,7 @@ import android.widget.ImageView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -57,9 +59,11 @@ class CardPresenter(
 	val imageType: ImageType,
 	val staticHeight: Int,
 	val uniformAspect: Boolean,
+	val enableFocusBorder: Boolean = false,
 ) : Presenter() {
 	constructor(showInfo: Boolean, imageType: ImageType, staticHeight: Int) : this(showInfo, imageType, staticHeight, false)
 	constructor(showInfo: Boolean, staticHeight: Int) : this(showInfo, ImageType.POSTER, staticHeight)
+	constructor(showInfo: Boolean, staticHeight: Int, enableFocusBorder: Boolean) : this(showInfo, ImageType.POSTER, staticHeight, false, enableFocusBorder)
 	constructor(showInfo: Boolean) : this(showInfo, 150)
 	constructor() : this(true)
 
@@ -102,6 +106,7 @@ class CardPresenter(
 					imageType = imageType,
 					staticHeight = staticHeight,
 					uniformAspect = uniformAspect,
+					enableFocusBorder = enableFocusBorder,
 				)
 			}
 
@@ -277,6 +282,7 @@ private fun CardViewHolderContent(
 	imageType: ImageType,
 	staticHeight: Int,
 	uniformAspect: Boolean,
+	enableFocusBorder: Boolean = false,
 ) {
 	val context = LocalContext.current
 	val localDensity = LocalDensity.current
@@ -367,6 +373,7 @@ private fun CardViewHolderContent(
 			},
 			modifier = Modifier
 				.size(size)
+				.then(if (focused && enableFocusBorder) Modifier.border(2.dp, Color.White, JellyfinTheme.shapes.medium) else Modifier)
 		)
 	}
 
