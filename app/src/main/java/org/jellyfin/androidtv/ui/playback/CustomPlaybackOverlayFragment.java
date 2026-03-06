@@ -99,7 +99,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private Runnable mProgramInfoUpdateTask;
     private boolean mQuickChannelChangerVisible = false;
 
-    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 400;
+    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 200;
     private static final long TICKS_PER_MS = 10_000;
 
     //Live guide items
@@ -214,11 +214,13 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
             if (item instanceof BaseItemDto) {
                 BaseItemDto channel = (BaseItemDto) item;
+                BaseItemDto program = channel.getCurrentProgram();
+                String overview = (program != null) ? program.getOverview() : null;
+                String headerText = getProgramHeaderText(program);
+
                 mProgramInfoUpdateTask = () -> {
                     if (binding == null) return;
-                    BaseItemDto program = channel.getCurrentProgram();
-                    String overview = (program != null) ? program.getOverview() : null;
-                    binding.popupHeader.setText(getProgramHeaderText(program));
+                    binding.popupHeader.setText(headerText);
                     binding.popupDescription.setText(overview != null ? overview : "");
                 };
                 mHandler.postDelayed(mProgramInfoUpdateTask, OVERLAY_GUIDE_TEXT_DEBOUNCE_MS);
