@@ -98,7 +98,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private Runnable mProgramInfoUpdateTask;
     private boolean mQuickChannelChangerVisible = false;
 
-    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 200;
+    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 300;
     private static final long TICKS_PER_MS = 10_000;
 
     //Live guide items

@@ -1,13 +1,21 @@
 package org.jellyfin.androidtv.ui.presentation
 
+import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.leanback.widget.ObjectAdapter
 import androidx.leanback.widget.RowPresenter
+
+/** Minimum interval (ms) between scroll events when the user holds a DPAD key. */
+private const val KEY_REPEAT_THROTTLE_MS = 175L
+
+/** Extra off-screen views kept in RecyclerView's cache to reduce bind overhead during scrolling. */
+private const val ITEM_VIEW_CACHE_SIZE = 8
 
 class PositionableListRowPresenter : CustomListRowPresenter {
 	private var viewHolder: ViewHolder? = null
 	private var pendingPosition: Int = -1
 	private val trapFocus: Boolean
+	private var lastScrollTime: Long = 0L
 
 	constructor() : this(padding = null, trapFocus = false)
 	constructor(padding: Int?) : this(padding, trapFocus = false)
@@ -30,14 +38,31 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 		viewHolder = holder
 		val grid = holder.gridView
 		if (trapFocus) {
+			grid.setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
+			grid.setHasFixedSize(true)
+
 			// Prevent focus from escaping the grid at either boundary so the user
 			// stays inside the popup (channel changer / chapter selector).
 			// Uses the adapter size to detect boundaries rather than hard-coding
 			// position 0, so this works regardless of the adapter's centering strategy.
+			// Held-key repeats are throttled so items don't scroll too fast to read.
 			grid.setOnKeyInterceptListener { event ->
 				val adapter = grid.adapter as? ObjectAdapter
 				val pos = grid.selectedPosition
 				val size = adapter?.size() ?: 0
+
+				val isDpad = event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
+					event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+
+				// Throttle rapid key repeats so items don't fly by too fast to read
+				if (isDpad && event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0) {
+					val now = SystemClock.uptimeMillis()
+					if (now - lastScrollTime < KEY_REPEAT_THROTTLE_MS) {
+						return@setOnKeyInterceptListener true
+					}
+					lastScrollTime = now
+				}
+
 				when (event.keyCode) {
 					KeyEvent.KEYCODE_DPAD_LEFT -> pos <= 0
 					KeyEvent.KEYCODE_DPAD_RIGHT -> size > 0 && pos >= size - 1
