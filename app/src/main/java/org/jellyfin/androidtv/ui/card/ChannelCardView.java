@@ -34,10 +34,25 @@ public class ChannelCardView extends FrameLayout {
         BaseItemDto program = channel.getCurrentProgram();
         if (program != null) {
             updateDisplay(program);
+            updateRecordingIndicator(program);
         } else {
             binding.program.setText(R.string.no_program_data);
             binding.time.setText("");
             binding.progress.setProgress(0);
+            binding.recIndicator.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateRecordingIndicator(BaseItemDto program) {
+        if (program.getSeriesTimerId() != null) {
+            binding.recIndicator.setImageResource(program.getTimerId() != null
+                    ? R.drawable.ic_record_series_red : R.drawable.ic_record_series);
+            binding.recIndicator.setVisibility(View.VISIBLE);
+        } else if (program.getTimerId() != null) {
+            binding.recIndicator.setImageResource(R.drawable.ic_record_red);
+            binding.recIndicator.setVisibility(View.VISIBLE);
+        } else {
+            binding.recIndicator.setVisibility(View.GONE);
         }
     }
 

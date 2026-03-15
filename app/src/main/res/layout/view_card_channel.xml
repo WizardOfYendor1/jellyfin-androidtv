@@ -19,6 +19,17 @@
         android:src="@drawable/ic_heart_red"
         android:visibility="gone" />
 
+    <ImageView
+        android:id="@+id/recIndicator"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginStart="4dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        tools:src="@drawable/ic_record_series_red" />
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -27,6 +38,7 @@
         android:id="@+id/name"
         android:layout_alignParentTop="true"
         android:layout_toEndOf="@+id/favImage"
+        android:layout_toStartOf="@+id/recIndicator"
         android:maxLines="1"
         android:ellipsize="end" />
 
