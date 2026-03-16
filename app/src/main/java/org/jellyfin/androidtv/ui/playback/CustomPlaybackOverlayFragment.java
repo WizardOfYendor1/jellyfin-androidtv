@@ -209,8 +209,12 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             if (mProgramInfoUpdateTask != null) {
                 mHandler.removeCallbacks(mProgramInfoUpdateTask);
             }
-            binding.popupDescription.setText("");
-            binding.popupHeader.setText("");
+
+            // Clear text during scrolling to avoid stale info flashing mid-scroll.
+            if (mPopupRowPresenter.isScrolling()) {
+                binding.popupDescription.setText("");
+                binding.popupHeader.setText("");
+            }
 
             if (item instanceof BaseItemDto) {
                 BaseItemDto channel = (BaseItemDto) item;
@@ -220,6 +224,10 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
                 mProgramInfoUpdateTask = () -> {
                     if (binding == null) return;
+                    if (mPopupRowPresenter.isScrolling()) {
+                        mHandler.postDelayed(mProgramInfoUpdateTask, OVERLAY_GUIDE_TEXT_DEBOUNCE_MS);
+                        return;
+                    }
                     binding.popupHeader.setText(headerText);
                     binding.popupDescription.setText(overview != null ? overview : "");
                 };

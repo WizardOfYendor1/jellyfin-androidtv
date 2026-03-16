@@ -1,21 +1,28 @@
 package org.jellyfin.androidtv.ui.presentation
 
-import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.leanback.widget.ObjectAdapter
 import androidx.leanback.widget.RowPresenter
+import androidx.recyclerview.widget.RecyclerView
 
-/** Minimum interval (ms) between scroll events when the user holds a DPAD key. */
-private const val KEY_REPEAT_THROTTLE_MS = 175L
+private const val ITEM_VIEW_CACHE_SIZE = 11
+private const val MAX_PENDING_MOVES = 2
+private const val SMOOTH_SCROLL_SPEED_FACTOR = 4.5f
 
-/** Extra off-screen views kept in RecyclerView's cache to reduce bind overhead during scrolling. */
-private const val ITEM_VIEW_CACHE_SIZE = 8
+/** Must exceed the DPAD auto-repeat interval (~50 ms) so brief IDLE gaps don't break [isScrolling]. */
+private const val HELD_KEY_TIMEOUT_MS = 250L
 
 class PositionableListRowPresenter : CustomListRowPresenter {
 	private var viewHolder: ViewHolder? = null
 	private var pendingPosition: Int = -1
 	private val trapFocus: Boolean
-	private var lastScrollTime: Long = 0L
+	private var scrollState: Int = RecyclerView.SCROLL_STATE_IDLE
+	private var lastKeyRepeatTime: Long = 0L
+
+	/** True while the user is actively scrolling (scroll animation running or key recently held). */
+	val isScrolling: Boolean
+		get() = scrollState != RecyclerView.SCROLL_STATE_IDLE ||
+			System.currentTimeMillis() - lastKeyRepeatTime < HELD_KEY_TIMEOUT_MS
 
 	constructor() : this(padding = null, trapFocus = false)
 	constructor(padding: Int?) : this(padding, trapFocus = false)
@@ -40,12 +47,16 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 		if (trapFocus) {
 			grid.setItemViewCacheSize(ITEM_VIEW_CACHE_SIZE)
 			grid.setHasFixedSize(true)
+			grid.setSmoothScrollMaxPendingMoves(MAX_PENDING_MOVES)
+			grid.setSmoothScrollSpeedFactor(SMOOTH_SCROLL_SPEED_FACTOR)
 
-			// Prevent focus from escaping the grid at either boundary so the user
-			// stays inside the popup (channel changer / chapter selector).
-			// Uses the adapter size to detect boundaries rather than hard-coding
-			// position 0, so this works regardless of the adapter's centering strategy.
-			// Held-key repeats are throttled so items don't scroll too fast to read.
+			grid.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+				override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+					scrollState = newState
+				}
+			})
+
+			// Trap focus at boundaries and track held-key timing for isScrolling.
 			grid.setOnKeyInterceptListener { event ->
 				val adapter = grid.adapter as? ObjectAdapter
 				val pos = grid.selectedPosition
@@ -54,13 +65,8 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 				val isDpad = event.keyCode == KeyEvent.KEYCODE_DPAD_LEFT ||
 					event.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
 
-				// Throttle rapid key repeats so items don't fly by too fast to read
 				if (isDpad && event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0) {
-					val now = SystemClock.uptimeMillis()
-					if (now - lastScrollTime < KEY_REPEAT_THROTTLE_MS) {
-						return@setOnKeyInterceptListener true
-					}
-					lastScrollTime = now
+					lastKeyRepeatTime = System.currentTimeMillis()
 				}
 
 				when (event.keyCode) {
@@ -74,10 +80,7 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 		if (pendingPosition >= 0) {
 			val pos = pendingPosition
 			pendingPosition = -1
-			// Defer until after layout so the grid has items to scroll to.
-			grid.post {
-				grid.selectedPosition = pos
-			}
+			grid.post { grid.selectedPosition = pos }
 		}
 	}
 
@@ -86,11 +89,7 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 		super.onUnbindRowViewHolder(holder)
 	}
 
-	/**
-	 * Clear the cached viewHolder so the next [position] set falls through
-	 * to [pendingPosition]. Call this after removing a row from the adapter
-	 * when RecyclerView defers the actual unbind to the next layout pass.
-	 */
+	/** Clear cached viewHolder so the next [position] set uses [pendingPosition]. */
 	fun invalidate() {
 		viewHolder = null
 	}
@@ -103,13 +102,9 @@ class PositionableListRowPresenter : CustomListRowPresenter {
 				grid.selectedPosition = value
 				pendingPosition = -1
 			} else if (grid != null) {
-				// Grid is bound but not yet attached to the window (e.g. the
-				// row was just added to the adapter and layout hasn't run).
-				// Post so the position is applied once the grid is laid out.
 				pendingPosition = -1
 				grid.post { grid.selectedPosition = value }
 			} else {
-				// Grid not bound yet — store for onBindRowViewHolder.
 				pendingPosition = value
 			}
 		}
