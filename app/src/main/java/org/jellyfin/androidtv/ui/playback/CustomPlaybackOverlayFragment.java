@@ -198,6 +198,17 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         mPopupRowAdapter = new ArrayObjectAdapter(mPopupRowPresenter);
         mPopupRowsFragment.setAdapter(mPopupRowAdapter);
         mPopupRowsFragment.setOnItemViewClickedListener(itemViewClickedListener);
+
+        // Clear guide text when pixel scrolling starts so stale info doesn't linger.
+        mPopupRowPresenter.setOnScrollStart(() -> {
+            if (binding == null) return;
+            binding.popupDescription.setText("");
+            binding.popupHeader.setText("");
+            if (mProgramInfoUpdateTask != null) {
+                mHandler.removeCallbacks(mProgramInfoUpdateTask);
+            }
+        });
+
         mPopupRowsFragment.setOnItemViewSelectedListener((itemViewHolder, item, rowViewHolder, row) -> {
             if (!mQuickChannelChangerVisible) return;
 

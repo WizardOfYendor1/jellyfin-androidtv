@@ -6,9 +6,18 @@ import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.RowPresenter
 
-open class CustomListRowPresenter @JvmOverloads constructor(
-	private val topPadding: Int? = null
-) : ListRowPresenter() {
+open class CustomListRowPresenter : ListRowPresenter {
+	private val topPadding: Int?
+
+	@JvmOverloads
+	constructor(topPadding: Int? = null) : super() {
+		this.topPadding = topPadding
+	}
+
+	protected constructor(topPadding: Int?, focusZoomFactor: Int, useFocusDimmer: Boolean)
+		: super(focusZoomFactor, useFocusDimmer) {
+		this.topPadding = topPadding
+	}
 	init {
 		headerPresenter = CustomRowHeaderPresenter()
 	}
