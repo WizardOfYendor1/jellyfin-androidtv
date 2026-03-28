@@ -268,6 +268,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             mHandler.removeCallbacks(mProgramInfoUpdateTask);
             mProgramInfoUpdateTask = null;
         }
+        mPopupRowPresenter.setHoldNavigationMode(PositionableListRowPresenter.HoldNavigationMode.NONE);
         binding = null;
         // To fix race condition in hide timer
         mIsVisible = false;
@@ -829,6 +830,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         if (mProgramInfoUpdateTask != null) {
             mHandler.removeCallbacks(mProgramInfoUpdateTask);
         }
+        mPopupRowPresenter.setHoldNavigationMode(PositionableListRowPresenter.HoldNavigationMode.NONE);
         // Don't change visibility before the animation — let the whole panel fade out together.
         // Header/description are reset in hidePopup's onAnimationEnd (which sets popupArea GONE).
         binding.popupArea.startAnimation(hidePopup);
@@ -1293,6 +1295,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
             prepareChannelAdapter();
         }
         mQuickChannelChangerVisible = true;
+        mPopupRowPresenter.setHoldNavigationMode(PositionableListRowPresenter.HoldNavigationMode.QUICK_CHANNEL_PAGING);
         // Show header and reserve description space for channels
         binding.popupHeader.setText("");
         binding.popupHeader.setVisibility(View.VISIBLE);
@@ -1363,6 +1366,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
     public void showChapterSelector() {
         mQuickChannelChangerVisible = false;
+        mPopupRowPresenter.setHoldNavigationMode(PositionableListRowPresenter.HoldNavigationMode.NONE);
         // Show header for chapters (no description area needed)
         binding.popupHeader.setText(R.string.chapters);
         binding.popupHeader.setVisibility(View.VISIBLE);
