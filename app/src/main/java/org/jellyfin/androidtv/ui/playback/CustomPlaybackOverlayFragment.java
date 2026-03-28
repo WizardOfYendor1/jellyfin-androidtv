@@ -98,7 +98,7 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
     private Runnable mProgramInfoUpdateTask;
     private boolean mQuickChannelChangerVisible = false;
 
-    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 300;
+    private static final int OVERLAY_GUIDE_TEXT_DEBOUNCE_MS = 200;
     private static final long TICKS_PER_MS = 10_000;
 
     //Live guide items
@@ -198,29 +198,14 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
         mPopupRowAdapter = new ArrayObjectAdapter(mPopupRowPresenter);
         mPopupRowsFragment.setAdapter(mPopupRowAdapter);
         mPopupRowsFragment.setOnItemViewClickedListener(itemViewClickedListener);
-
-        // Clear guide text when pixel scrolling starts so stale info doesn't linger.
-        mPopupRowPresenter.setOnScrollStart(() -> {
-            if (binding == null) return;
-            binding.popupDescription.setText("");
-            binding.popupHeader.setText("");
-            if (mProgramInfoUpdateTask != null) {
-                mHandler.removeCallbacks(mProgramInfoUpdateTask);
-            }
-        });
-
         mPopupRowsFragment.setOnItemViewSelectedListener((itemViewHolder, item, rowViewHolder, row) -> {
             if (!mQuickChannelChangerVisible) return;
 
             if (mProgramInfoUpdateTask != null) {
                 mHandler.removeCallbacks(mProgramInfoUpdateTask);
             }
-
-            // Clear text during scrolling to avoid stale info flashing mid-scroll.
-            if (mPopupRowPresenter.isScrolling()) {
-                binding.popupDescription.setText("");
-                binding.popupHeader.setText("");
-            }
+            binding.popupDescription.setText("");
+            binding.popupHeader.setText("");
 
             if (item instanceof BaseItemDto) {
                 BaseItemDto channel = (BaseItemDto) item;
@@ -230,10 +215,6 @@ public class CustomPlaybackOverlayFragment extends Fragment implements LiveTvGui
 
                 mProgramInfoUpdateTask = () -> {
                     if (binding == null) return;
-                    if (mPopupRowPresenter.isScrolling()) {
-                        mHandler.postDelayed(mProgramInfoUpdateTask, OVERLAY_GUIDE_TEXT_DEBOUNCE_MS);
-                        return;
-                    }
                     binding.popupHeader.setText(headerText);
                     binding.popupDescription.setText(overview != null ? overview : "");
                 };

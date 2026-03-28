@@ -12,15 +12,12 @@ import org.jellyfin.sdk.model.api.BaseItemDto;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class ChannelCardView extends FrameLayout {
     private ViewCardChannelBinding binding = ViewCardChannelBinding.inflate(LayoutInflater.from(getContext()), this, true);
-    private final DateTimeFormatter timeFormatter;
 
     public ChannelCardView(Context context) {
         super(context);
-        timeFormatter = DateTimeExtensionsKt.getTimeFormatter(context);
     }
 
     public void setItem(final BaseItemDto channel) {
@@ -45,20 +42,19 @@ public class ChannelCardView extends FrameLayout {
         binding.program.setText(program.getName());
         if (program.getStartDate() != null && program.getEndDate() != null) {
             binding.time.setText(new StringBuilder()
-                    .append(timeFormatter.format(program.getStartDate()))
+                    .append(DateTimeExtensionsKt.getTimeFormatter(getContext()).format(program.getStartDate()))
                     .append("-")
-                    .append(timeFormatter.format(program.getEndDate()))
+                    .append(DateTimeExtensionsKt.getTimeFormatter(getContext()).format(program.getEndDate()))
             );
 
-            LocalDateTime now = LocalDateTime.now();
-            if (program.getStartDate().isBefore(now) && program.getEndDate().isAfter(now)) {
+            if (program.getStartDate().isBefore(LocalDateTime.now()) && program.getEndDate().isAfter(LocalDateTime.now())) {
                 Duration duration = Duration.between(program.getStartDate(), program.getEndDate());
-                Duration progress = Duration.between(program.getStartDate(), now);
-
+                Duration progress = Duration.between(program.getStartDate(), LocalDateTime.now());
+            
                 binding.progress.setProgress((int) ((progress.getSeconds() / (double) duration.getSeconds()) * 100));
             } else {
                 binding.progress.setProgress(0);
-            }
+            }          
         } else {
             binding.time.setText("");
             binding.progress.setProgress(0);
