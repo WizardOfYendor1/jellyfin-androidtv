@@ -84,6 +84,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
 
     protected VideoOptions mCurrentOptions;
     private int mDefaultAudioIndex = -1;
+    private int mAudioSwitchRestartIndex = -1;
     protected boolean burningSubs = false;
     private float mRequestedPlaybackSpeed = -1.0f;
 
@@ -690,10 +691,14 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         // Otherwise, query the players
         if (mCurrentOptions.getAudioStreamIndex() != null) {
             currIndex = mCurrentOptions.getAudioStreamIndex();
-        } else if (isTranscoding() && getCurrentMediaSource().getDefaultAudioStreamIndex() != null) {
-            currIndex = getCurrentMediaSource().getDefaultAudioStreamIndex();
-        } else if (hasInitializedVideoManager() && !isTranscoding()) {
-            currIndex = mVideoManager.getExoPlayerTrack(MediaStreamType.AUDIO, getCurrentlyPlayingItem().getMediaStreams());
+        } else if (isTranscoding()) {
+            MediaSourceInfo mediaSource = getCurrentMediaSource();
+            if (mediaSource != null && mediaSource.getDefaultAudioStreamIndex() != null)
+                currIndex = mediaSource.getDefaultAudioStreamIndex();
+        } else if (hasInitializedVideoManager()) {
+            MediaSourceInfo mediaSource = getCurrentMediaSource();
+            if (mediaSource != null && mediaSource.getMediaStreams() != null)
+                currIndex = mVideoManager.getExoPlayerTrack(MediaStreamType.AUDIO, mediaSource.getMediaStreams());
         }
         return currIndex;
     }
@@ -755,14 +760,19 @@ public class PlaybackController implements PlaybackControllerNotifiable {
             return;
 
         MediaSourceInfo currentMediaSource = getCurrentMediaSource();
-        if (currentMediaSource == null
-                || currentMediaSource.getMediaStreams() == null
-                || index >= currentMediaSource.getMediaStreams().size()) {
+        if (currentMediaSource == null || currentMediaSource.getMediaStreams() == null) {
+            return;
+        }
+
+        // Look up the requested stream by its Index key, not by list position
+        MediaStream requestedStream = findStreamByIndex(currentMediaSource.getMediaStreams(), MediaStreamType.AUDIO, index);
+        if (requestedStream == null) {
+            Timber.w("requested audio stream index %s not found in media source", index);
             return;
         }
 
         String lastAudioIsoCode = videoQueueManager.getValue().getLastPlayedAudioLanguageIsoCode();
-        String currentAudioIsoCode = currentMediaSource.getMediaStreams().get(index).getLanguage();
+        String currentAudioIsoCode = requestedStream.getLanguage();
 
         if (currentAudioIsoCode != null
                 && (lastAudioIsoCode == null || !lastAudioIsoCode.equals(currentAudioIsoCode))) {
@@ -775,6 +785,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         Timber.i("trying to switch audio stream from %s to %s", currAudioIndex, index);
         if (currAudioIndex == index) {
             Timber.d("skipping setting audio stream, already set to requested index %s", index);
+            mAudioSwitchRestartIndex = -1;
             if (mCurrentOptions.getAudioStreamIndex() == null || mCurrentOptions.getAudioStreamIndex() != index) {
                 Timber.i("setting mCurrentOptions audio stream index from %s to %s", mCurrentOptions.getAudioStreamIndex(), index);
                 mCurrentOptions.setAudioStreamIndex(index);
@@ -788,13 +799,26 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         if (!isTranscoding() && mVideoManager.setExoPlayerTrack(index, MediaStreamType.AUDIO, currentMediaSource.getMediaStreams())) {
             mCurrentOptions.setMediaSourceId(currentMediaSource.getId());
             mCurrentOptions.setAudioStreamIndex(index);
-        } else {
+            mAudioSwitchRestartIndex = -1;
+        } else if (index != mAudioSwitchRestartIndex) {
+            // In-player switch failed or we are transcoding — restart playback so the server
+            // can provide a stream with the requested audio track.
+            // Circuit breaker: allow only one automatic restart per requested index to prevent
+            // an infinite restart loop. If the restarted attempt still fails, the "give-up" else
+            // clears the guard so the user can try again manually.
+            Timber.i("restarting playback for audio stream index %d", index);
+            mAudioSwitchRestartIndex = index;
             startSpinner();
             mCurrentOptions.setMediaSourceId(currentMediaSource.getId());
             mCurrentOptions.setAudioStreamIndex(index);
             stop();
             playInternal(getCurrentlyPlayingItem(), mCurrentPosition, mCurrentOptions);
             mPlaybackState = PlaybackState.BUFFERING;
+        } else {
+            Timber.w("audio track switch to index %d failed after restart, not retrying", index);
+            mAudioSwitchRestartIndex = -1;
+            if (mFragment != null && mFragment.getContext() != null)
+                Utils.showToast(mFragment.getContext(), mFragment.getString(R.string.msg_audio_track_switch_failed));
         }
     }
 
@@ -873,6 +897,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
 
     private void resetPlayerErrors() {
         playbackRetries = 0;
+        mAudioSwitchRestartIndex = -1;
     }
 
     private void clearPlaybackSessionOptions() {
@@ -1309,6 +1334,15 @@ public class PlaybackController implements PlaybackControllerNotifiable {
     public void setZoom(@NonNull ZoomMode mode) {
         if (hasInitializedVideoManager())
             mVideoManager.setZoom(mode);
+    }
+
+    private static @Nullable MediaStream findStreamByIndex(@NonNull List<MediaStream> streams, @NonNull MediaStreamType type, int index) {
+        for (MediaStream stream : streams) {
+            if (stream.getType() == type && stream.getIndex() == index) {
+                return stream;
+            }
+        }
+        return null;
     }
 
     /**
