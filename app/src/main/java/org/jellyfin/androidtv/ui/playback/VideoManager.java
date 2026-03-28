@@ -458,8 +458,12 @@ public class VideoManager {
         // offset the stream index to account for external streams
         int exoTrackID = offsetStreamIndex(parsedGroupId, true, allStreams);
         if (exoTrackID >= 0) {
-            Timber.d("re-retrieved exoplayer track index %s", exoTrackID);
-            return exoTrackID;
+            MediaStream directMatch = findStreamByIndex(allStreams, streamType, exoTrackID);
+            if (directMatch != null) {
+                Timber.d("re-retrieved exoplayer track index %s", exoTrackID);
+                return directMatch.getIndex();
+            }
+            Timber.w("translated exoplayer track index %s does not map to a non-external %s stream", exoTrackID, streamType);
         }
 
         if (selectedGroupInfo == null)
@@ -631,6 +635,19 @@ public class VideoManager {
                 return true;
         }
         return false;
+    }
+
+    private static @Nullable MediaStream findStreamByIndex(
+            @NonNull List<MediaStream> streams,
+            @NonNull MediaStreamType type,
+            int index
+    ) {
+        for (MediaStream stream : streams) {
+            if (!stream.isExternal() && stream.getType() == type && stream.getIndex() == index) {
+                return stream;
+            }
+        }
+        return null;
     }
 
     private static boolean isTrackGroupSelected(Tracks.Group groupInfo) {

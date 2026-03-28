@@ -806,6 +806,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         Timber.i("trying to switch audio stream from %s to %s", currAudioIndex, index);
         if (currAudioIndex == index) {
             Timber.d("skipping setting audio stream, already set to requested index %s", index);
+            mAudioSwitchRestartIndex = -1;
             if (mCurrentOptions.getAudioStreamIndex() == null || mCurrentOptions.getAudioStreamIndex() != index) {
                 Timber.i("setting mCurrentOptions audio stream index from %s to %s", mCurrentOptions.getAudioStreamIndex(), index);
                 mCurrentOptions.setAudioStreamIndex(index);
@@ -837,7 +838,7 @@ public class PlaybackController implements PlaybackControllerNotifiable {
         } else {
             Timber.w("audio track switch to index %d failed after restart, not retrying", index);
             mAudioSwitchRestartIndex = -1;
-            if (mFragment != null)
+            if (mFragment != null && mFragment.getContext() != null)
                 Utils.showToast(mFragment.getContext(), mFragment.getString(R.string.msg_audio_track_switch_failed));
         }
     }
